@@ -2,6 +2,8 @@ import express from 'express';
 import cors from 'cors';
 import { MongoClient, ObjectId } from 'mongodb';
 import dotenv from 'dotenv';
+import joi from 'joi';
+import dayjs from 'dayjs';
 
 /* Configurações Iniciais */
 dotenv.config();
@@ -22,16 +24,68 @@ mongoClient.connect(() => {
 });
 
 
+/* ------- SCHEMAS  -------*/
+
+const messagesSchema = joi.object({
+    to: joi.string().required(),
+    text: joi.string().required(),
+    type: joi.string().required()
+});
+
+
 /* ------- ROTAS -------*/
 
 app.post('/participants', async (req, res) => {
+    
+    /* ------- SCHEMAS  -------*/
+    const schema = joi.object({
+        name: joi.string().required()
+    });
 
 
+    const validate = schema.validate(req.body, { abortEarly: true });
+    
+    if (validate.error) {//Checa validações
+        res.status(422).send("O campo não pode estar vazio");
+    }
+
+    try {
+        const participants = await db.collection('participants').findOne(req.body);//Procura participante no bd
+
+        if (participants) { //Verifica se usuário já existe
+            res.status(409).send('Usuário já existe');
+        }else{
+
+
+            /* Salva Participante no bd*/
+            await db.collection('participants').insertOne({
+                name: req.body.name,
+                lastStatus: Date.now()
+            });
+
+            /* Salva Mensagem no bd*/
+            await db.collection('messages').insertOne({
+                from: req.body.name,
+                to: 'Todos',
+                text: 'entra na sala...',
+                type: 'status',
+                time: dayjs().format('HH:mm:ss')
+            });
+
+            res.status(201).send();
+        }
+
+
+      } catch(error) {
+        console.log(error);
+    }
+
+   
 });
 
 app.get('/participants', async (req, res) => {
 
-
+    
 });
 
 app.post('/messages', async (req, res) => {
