@@ -139,10 +139,19 @@ app.post('/messages', async (req, res) => {
 
 app.get('/messages', async (req, res) => {
 
-    try {
-        const messages = await db.collection('messages').find().toArray();//Busca lista de MENSAGENS no bd
+    const user = req.header('User');
+    const limit = req.query.limit;
 
-        res.send(messages);
+    try {
+        const messages = await db.collection('messages').find({ $or: [ { to: 'Todos' }, { to: user }, { from: user }, { type: 'message' } ] }).toArray();//Busca lista de MENSAGENS no bd
+
+
+
+        if(limit){
+            res.send(messages.reverse().slice( 0 , limit ));//Limita mensagens
+        }else{
+            res.send(messages.reverse());
+        }
     } catch(error) {
         console.log(error);
     }
@@ -151,6 +160,23 @@ app.get('/messages', async (req, res) => {
 app.post('/status', async (req, res) => {
 
 
+
+    try {
+        const user = await db.collection('participants').findOne({ name: req.header('User') });//Procura participante no bd
+
+        if (user) { //Verifica se usuário já existe
+            
+            await db.collection('participants').updateOne( { name: req.header('User') }, { $set: { lastStatus: Date.now() } });
+            res.sendStatus(200);
+        }else{
+
+            res.status(404).send();
+        }
+
+
+    } catch(error) {
+        console.log(error);
+    }
 });
 
 app.listen(5000, '127.0.0.1');
