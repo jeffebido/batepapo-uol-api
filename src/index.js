@@ -62,7 +62,8 @@ app.post('/participants', async (req, res) => {
                 to: 'Todos',
                 text: 'entra na sala...',
                 type: 'status',
-                time: dayjs().format('HH:MM:ss')
+                time: dayjs().format('HH:MM:ss'),
+                createdAt: new Date()
             });
 
             res.status(201).send();
@@ -103,38 +104,40 @@ app.post('/messages', async (req, res) => {
         res.status(422).send("O campo não pode estar vazio");
         return;
     }
+    //console.log(req.body.type);
+    if (req.body.type == 'private_message' || req.body.type == 'message'){
+       
+    
+        try {
+            const from = await db.collection('participants').findOne( {  name: req.header('User')} );//Procura participante no bd
 
-    if (req.body.type != 'private_message' || req.body.type != 'message'){
-        res.status(422).send("Campo type incorreto");
+            if (!from) { //Verifica se usuário já existe
+                
+                res.status(422).send('Usuário não encontrado');
+            }else{
+
+
+            
+                /* Salva Mensagem no bd*/
+                await db.collection('messages').insertOne({
+                    from: req.header('User'),
+                    to: req.body.to,
+                    text: req.body.text,
+                    type: req.body.type,
+                    time: dayjs().format('HH:MM:ss'),
+                    createdAt: new Date()
+                });
+                
+                res.status(201).send();
+            }
+
+
+        } catch(error) {
+            console.log(error);
+        }
+    }else{ res.status(422).send("Campo type incorreto");
         return;
     }
-    
-    try {
-        const from = await db.collection('participants').findOne( req.header('User') );//Procura participante no bd
-
-        if (from) { //Verifica se usuário já existe
-            res.status(422).send('Usuário não encontrado');
-        }else{
-
-
-         
-            /* Salva Mensagem no bd*/
-            await db.collection('messages').insertOne({
-                from: req.header('User'),
-                to: req.body.to,
-                text: req.body.text,
-                type: req.body.type,
-                time: dayjs().format('HH:MM:ss')
-            });
-
-            res.status(201).send();
-        }
-
-
-    } catch(error) {
-        console.log(error);
-    }
-
 });
 
 app.get('/messages', async (req, res) => {
@@ -143,15 +146,19 @@ app.get('/messages', async (req, res) => {
     const limit = req.query.limit;
 
     try {
-        const messages = await db.collection('messages').find({ $or: [ { to: 'Todos' }, { to: user }, { from: user }, { type: 'message' } ] }).toArray();//Busca lista de MENSAGENS no bd
+        let messages;
 
 
-
+        
         if(limit){
-            res.send(messages.slice( 0 , limit ));//Limita mensagens
+            messages = await db.collection('messages').find({ $or: [ { to: 'Todos' }, { to: user }, { from: user }, { type: 'message' } ] }).sort({createdAt: -1}).limit( parseInt( limit) ).toArray();//Busca lista de MENSAGENS no bd limitando
+
+            
         }else{
-            res.send(messages);
+            messages = await db.collection('messages').find({ $or: [ { to: 'Todos' }, { to: user }, { from: user }, { type: 'message' } ] }).sort({createdAt: -1}).toArray();//Busca lista de MENSAGENS no bd
         }
+
+        res.send(messages.reverse());
     } catch(error) {
         console.log(error);
     }
@@ -197,6 +204,7 @@ export async function checkUsersStatus(){
                 text: 'sai da sala...',
                 type: 'status',
                 time: dayjs().format('HH:MM:ss'),
+                createdAt: new Date()
             });
         });
 
