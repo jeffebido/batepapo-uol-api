@@ -104,7 +104,7 @@ app.post('/messages', async (req, res) => {
         return;
     }
 
-    if (type != 'private_message' || type != 'message'){
+    if (req.body.type != 'private_message' || req.body.type != 'message'){
         res.status(422).send("Campo type incorreto");
         return;
     }
@@ -148,9 +148,9 @@ app.get('/messages', async (req, res) => {
 
 
         if(limit){
-            res.send(messages.reverse().slice( 0 , limit ));//Limita mensagens
+            res.send(messages.slice( 0 , limit ));//Limita mensagens
         }else{
-            res.send(messages.reverse());
+            res.send(messages);
         }
     } catch(error) {
         console.log(error);
@@ -178,5 +178,34 @@ app.post('/status', async (req, res) => {
         console.log(error);
     }
 });
+
+export async function checkUsersStatus(){
+
+
+    try {
+        const inactiveUsers = await db.collection('participants').find({ lastStatus: { $lte: Date.now() - 10000 } }).toArray();
+
+        inactiveUsers.forEach(async (user) => {
+
+            await db.collection('participants').deleteOne({
+                name: user.name,
+            });
+
+            await db.collection('messages').insertOne({
+                from: user.name,
+                to: 'Todos',
+                text: 'sai da sala...',
+                type: 'status',
+                time: dayjs().format('HH:MM:ss'),
+            });
+        });
+
+    } catch (error) {
+        console.log(error);
+    }
+}
+
+setInterval(checkUsersStatus, 15000);
+
 
 app.listen(5000, '127.0.0.1');
