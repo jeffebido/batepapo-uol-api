@@ -24,14 +24,6 @@ mongoClient.connect(() => {
 });
 
 
-/* ------- SCHEMAS  -------*/
-
-const messagesSchema = joi.object({
-    to: joi.string().required(),
-    text: joi.string().required(),
-    type: joi.string().required()
-});
-
 
 /* ------- ROTAS -------*/
 
@@ -47,8 +39,9 @@ app.post('/participants', async (req, res) => {
     
     if (validate.error) {//Checa validações
         res.status(422).send("O campo não pode estar vazio");
+        return;
     }
-
+ 
     try {
         const participants = await db.collection('participants').findOne(req.body);//Procura participante no bd
 
@@ -69,7 +62,7 @@ app.post('/participants', async (req, res) => {
                 to: 'Todos',
                 text: 'entra na sala...',
                 type: 'status',
-                time: dayjs().format('HH:mm:ss')
+                time: dayjs().format('HH:MM:ss')
             });
 
             res.status(201).send();
@@ -89,8 +82,6 @@ app.get('/participants', async (req, res) => {
         const participants = await db.collection('participants').find().toArray();//Busca lista de participantes no bd
 
         res.send(participants);
-
-
     } catch(error) {
            console.log(error);
     }
@@ -98,12 +89,63 @@ app.get('/participants', async (req, res) => {
 
 app.post('/messages', async (req, res) => {
 
+    /* ------- SCHEMAS  -------*/
+
+    const schema = joi.object({
+        to: joi.string().required(),
+        text: joi.string().required(),
+        type: joi.string().required()
+    });
+
+    const validate = schema.validate(req.body, { abortEarly: true });
+    
+    if (validate.error) {//Checa validações
+        res.status(422).send("O campo não pode estar vazio");
+        return;
+    }
+
+    if (type != 'private_message' || type != 'message'){
+        res.status(422).send("Campo type incorreto");
+        return;
+    }
+    
+    try {
+        const from = await db.collection('participants').findOne( req.header('User') );//Procura participante no bd
+
+        if (from) { //Verifica se usuário já existe
+            res.status(422).send('Usuário não encontrado');
+        }else{
+
+
+         
+            /* Salva Mensagem no bd*/
+            await db.collection('messages').insertOne({
+                from: req.header('User'),
+                to: req.body.to,
+                text: req.body.text,
+                type: req.body.type,
+                time: dayjs().format('HH:MM:ss')
+            });
+
+            res.status(201).send();
+        }
+
+
+    } catch(error) {
+        console.log(error);
+    }
 
 });
 
 app.get('/messages', async (req, res) => {
 
+    try {
+        const messages = await db.collection('messages').find().toArray();//Busca lista de MENSAGENS no bd
 
+        res.send(messages);
+    } catch(error) {
+        console.log(error);
+    }
 });
 
 app.post('/status', async (req, res) => {
