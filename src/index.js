@@ -76,7 +76,7 @@ app.post('/participants', async (req, res) => {
         }
 
 
-      } catch(error) {
+    } catch(error) {
         console.log(error);
     }
 
@@ -85,7 +85,15 @@ app.post('/participants', async (req, res) => {
 
 app.get('/participants', async (req, res) => {
 
-    
+    try {
+        const participants = await db.collection('participants').find().toArray();//Busca lista de participantes no bd
+
+        res.send(participants);
+
+
+    } catch(error) {
+           console.log(error);
+    }
 });
 
 app.post('/messages', async (req, res) => {
